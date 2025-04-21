@@ -1,2 +1,2 @@
 # Ignore Inventor temp files
-CAD/OldVersions
+CAD/**/OldVersions
