@@ -18,6 +18,9 @@ static uint8_t const BTN_MTX_NUM = BTN_MTX_NUM_ROWS * BTN_MTX_NUM_COLS;
 static uint8_t const BTN_MTX_COL_PINS[BTN_MTX_NUM_COLS] = { PIN_BTN_MTX_01, PIN_BTN_MTX_02, PIN_BTN_MTX_03 };
 static uint8_t const BTN_MTX_ROW_PINS[BTN_MTX_NUM_ROWS] = { PIN_BTN_MTX_10, PIN_BTN_MTX_20, PIN_BTN_MTX_30 };
 
+uint8_t const BTN_MTX_NUM_PRESETS = 6;
+static uint8_t const BTN_MTX_IDX_PRESETS[BTN_MTX_NUM_PRESETS] = { BTN_MTX_P_1, BTN_MTX_P_2, BTN_MTX_P_3, BTN_MTX_P_4, BTN_MTX_P_5, BTN_MTX_P_6 };
+
 ButtonMatrix btn_matrix(BTN_MTX_COL_PINS, BTN_MTX_NUM_COLS, BTN_MTX_ROW_PINS, BTN_MTX_NUM_ROWS); // Main button matrix handler
 LongPress btn_lp_mtx_up;              // Long press handler for UP button
 LongPress btn_lp_mtx_down;            // Long press handler for DOWN button
@@ -98,6 +101,15 @@ void loop() {
 
     Serial.print("VOL=");
     Serial.println(audio_volume);
+  }
+
+  for (uint8_t i = 0; i < BTN_MTX_NUM_PRESETS; i++) 
+  {
+    if (btn_matrix.rising(BTN_MTX_IDX_PRESETS[i]))
+    {
+      Serial.print("BTN PRESET ");
+      Serial.print(i);
+    }
   }
 
   delay(10);
