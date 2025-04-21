@@ -6,6 +6,7 @@
 
 #include "Debounce.h"
 #include "ButtonMatrix.h"
+#include "LongPress.h"
 
 // #define PIN_SPI_CS_SD         10
 
@@ -19,6 +20,10 @@
 #define PIN_BTN_MIC           30
 #define PIN_BTN_STOP          32
 
+#define BTN_MTX_IDX_AUX       0
+#define BTN_MTX_IDX_UP        8
+#define BTN_MTX_IDX_DOWN      5
+
 // #define AUDIO_MIX_CH_PLAYER   0
 // #define AUDIO_MIX_CH_INPUT    1
 
@@ -28,6 +33,9 @@ static uint8_t const BTN_MTX_NUM = BTN_MTX_NUM_ROWS * BTN_MTX_NUM_COLS;
 static uint8_t const BTN_MTX_COL_PINS[BTN_MTX_NUM_COLS] = { PIN_BTN_MTX_01, PIN_BTN_MTX_02, PIN_BTN_MTX_03 };
 static uint8_t const BTN_MTX_ROW_PINS[BTN_MTX_NUM_ROWS] = { PIN_BTN_MTX_10, PIN_BTN_MTX_20, PIN_BTN_MTX_30 };
 ButtonMatrix button_matrix(BTN_MTX_COL_PINS, BTN_MTX_NUM_COLS, BTN_MTX_ROW_PINS, BTN_MTX_NUM_ROWS);
+
+LongPress button_lp_mtx_up;
+LongPress button_lp_mtx_down;
 
 // AudioPlaySdWav        audioPlayer;
 // AudioInputI2S         audioInput; // Microphone or Line
@@ -91,21 +99,30 @@ void loop() {
 
   button_matrix.loop(time_ms);
 
-  for (uint8_t i = 0; i < BTN_MTX_NUM; i++)
+  button_lp_mtx_up.loop(button_matrix.rising(BTN_MTX_IDX_UP), button_matrix.falling(BTN_MTX_IDX_UP), time_ms);
+  button_lp_mtx_down.loop(button_matrix.rising(BTN_MTX_IDX_DOWN), button_matrix.falling(BTN_MTX_IDX_DOWN), time_ms);
+
+  Serial.print("BTN UP: ");
+  if (button_lp_mtx_up.pressed())
   {
-    Serial.print(i);
-    Serial.print('=');
-    if (button_matrix.rising(i))
-    {
-      Serial.print('r');
-    }
-    if (button_matrix.falling(i))
-    {
-      Serial.print('f');
-    }
-    Serial.print(';');
-    Serial.print(' ');
+    Serial.print("SHORT");
   }
+  if (button_lp_mtx_up.long_pressed())
+  {
+    Serial.print("LONG");
+  }
+  Serial.print("; ");
+
+  Serial.print("BTN DOWN: ");
+  if (button_lp_mtx_down.pressed())
+  {
+    Serial.print("SHORT");
+  }
+  if (button_lp_mtx_down.long_pressed())
+  {
+    Serial.print("LONG");
+  }
+  Serial.print("; ");
 
   Serial.println();
 
