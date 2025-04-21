@@ -1,137 +1,127 @@
 // #include <Audio.h>
-// #include <Wire.h>
-// #include <SPI.h>
-// #include <SD.h>
-// #include <SerialFlash.h>
+#include <Wire.h>
+#include <SPI.h>
+#include <SD.h>
+#include <SerialFlash.h>
+#include <Audio.h>
 
 #include "Debounce.h"
 #include "ButtonMatrix.h"
 #include "LongPress.h"
 
-// #define PIN_SPI_CS_SD         10
-
-#define PIN_BTN_MTX_01        24
-#define PIN_BTN_MTX_02        26
-#define PIN_BTN_MTX_03        28
-#define PIN_BTN_MTX_10        25
-#define PIN_BTN_MTX_20        27
-#define PIN_BTN_MTX_30        29
-#define PIN_BTN_COM_MIC_STOP  31
-#define PIN_BTN_MIC           30
-#define PIN_BTN_STOP          32
-
-#define BTN_MTX_IDX_AUX       0
-#define BTN_MTX_IDX_UP        8
-#define BTN_MTX_IDX_DOWN      5
-
-// #define AUDIO_MIX_CH_PLAYER   0
-// #define AUDIO_MIX_CH_INPUT    1
+#include "BM_Config.h"
+#include "BM_Audio.h"
 
 uint8_t const BTN_MTX_NUM_ROWS  = 3;
 uint8_t const BTN_MTX_NUM_COLS  = 3;
 static uint8_t const BTN_MTX_NUM = BTN_MTX_NUM_ROWS * BTN_MTX_NUM_COLS;
 static uint8_t const BTN_MTX_COL_PINS[BTN_MTX_NUM_COLS] = { PIN_BTN_MTX_01, PIN_BTN_MTX_02, PIN_BTN_MTX_03 };
 static uint8_t const BTN_MTX_ROW_PINS[BTN_MTX_NUM_ROWS] = { PIN_BTN_MTX_10, PIN_BTN_MTX_20, PIN_BTN_MTX_30 };
-ButtonMatrix button_matrix(BTN_MTX_COL_PINS, BTN_MTX_NUM_COLS, BTN_MTX_ROW_PINS, BTN_MTX_NUM_ROWS);
 
-LongPress button_lp_mtx_up;
-LongPress button_lp_mtx_down;
+ButtonMatrix btn_matrix(BTN_MTX_COL_PINS, BTN_MTX_NUM_COLS, BTN_MTX_ROW_PINS, BTN_MTX_NUM_ROWS); // Main button matrix handler
+LongPress btn_lp_mtx_up;              // Long press handler for UP button
+LongPress btn_lp_mtx_down;            // Long press handler for DOWN button
+Debounce btn_deb_stop;
+Debounce btn_deb_mic;
 
-// AudioPlaySdWav        audioPlayer;
-// AudioInputI2S         audioInput; // Microphone or Line
-// AudioOutputI2S        audioOutput;
-// AudioMixer4           audioMixer;
+uint8_t const audio_mic_gain = 36;
+bool audio_volume_changed;
+float audio_volume = 0.5;
+AudioInputI2S         audio_input; // Microphone or Line
+AudioOutputI2S        audio_output;
+AudioConnection       audio_patch_input_output(audio_input, 0, audio_output, 0);
+AudioControlSGTL5000  audio_codec;
 
-// AudioConnection       audioPatchPlayerToMixer(audioPlayer, 0, audioMixer, AUDIO_MIX_CH_PLAYER);
-// AudioConnection       audioPatchInputToMixer(audioInput, 0, audioMixer, AUDIO_MIX_CH_INPUT);
-// AudioConnection       audioPatchMixerToOutput(audioMixer, 0, audioOutput, 0);
-// AudioControlSGTL5000  audioCodec;
-
-// int audio_calc_output_hpf_coef();
+void btn_init();
+void btn_loop();
 
 void setup() 
 {
   Serial.begin(115200);
 
-  button_matrix.init();
+  SPI.setMOSI(PIN_SPI_MOSI);
+  SPI.setSCK(PIN_SPI_SCK);
+  if (!(SD.begin(PIN_SPI_CS_SD))) {
+    Serial.println("SD ERR: Unable to access SD card");
+    while (1) {
+      delay(1000);
+    }
+  }
 
-  pinMode(PIN_BTN_COM_MIC_STOP, OUTPUT);
-  digitalWrite(PIN_BTN_COM_MIC_STOP, LOW);
-  pinMode(PIN_BTN_STOP, INPUT_PULLUP);
-  pinMode(PIN_BTN_MIC, INPUT_PULLUP);
+  btn_init();
 
-  // AudioMemory(8);
-  // audioCodec.enable();
-  // audioCodec.inputSelect(AUDIO_INPUT_LINEIN);
-  // audioCodec.muteLineout();
+  AudioMemory(8);
+  audio_codec.enable();
+  
+  audio_codec.inputSelect(AUDIO_INPUT_MIC);
+  audio_codec.muteLineout();
+  audio_codec.micGain(audio_volume);
+  audio_codec.volume(0.5);
 
-  // int filterCoef = audio_calc_output_hpf_coef();
-  // audioCodec.eqFilter(0, &filterCoef);
-
-  // audioCodec.volume(0.5);
-
-  // audioMixer.gain(1, 1);
-  // audioMixer.gain(0, 1);
-
-  // audioPatchInputToMixer.disconnect();
-
-  // SPI.setMOSI(PIN_SPI_MOSI);
-  // SPI.setSCK(PIN_SPI_SCK);
-  // if (!(SD.begin(PIN_SPI_CS_SD))) {
-  //   Serial.println("SD ERR: Unable to access SD card");
-  //   while (1) {
-  //     delay(1000);
-  //   }
-  // }
+  audio_patch_input_output.disconnect();
 
   // audioPlayer.play("");
 }
 
 uint64_t time_ms;
 
-Debounce btn_stop_deb;
-
 void loop() {
   time_ms = millis();
 
-  Serial.print(time_ms);
-  Serial.print('\t');
+  btn_loop();
 
-  button_matrix.loop(time_ms);
-
-  button_lp_mtx_up.loop(button_matrix.rising(BTN_MTX_IDX_UP), button_matrix.falling(BTN_MTX_IDX_UP), time_ms);
-  button_lp_mtx_down.loop(button_matrix.rising(BTN_MTX_IDX_DOWN), button_matrix.falling(BTN_MTX_IDX_DOWN), time_ms);
-
-  Serial.print("BTN UP: ");
-  if (button_lp_mtx_up.pressed())
+  if (btn_deb_mic.rising())
   {
-    Serial.print("SHORT");
+    audio_patch_input_output.connect();
   }
-  if (button_lp_mtx_up.long_pressed())
+  else if (btn_deb_mic.falling())
   {
-    Serial.print("LONG");
+    audio_patch_input_output.disconnect();
   }
-  Serial.print("; ");
 
-  Serial.print("BTN DOWN: ");
-  if (button_lp_mtx_down.pressed())
+  if (btn_lp_mtx_down.pressed())
   {
-    Serial.print("SHORT");
+    audio_volume -= 0.1f;
+    audio_volume_changed = true;
   }
-  if (button_lp_mtx_down.long_pressed())
+  if (btn_lp_mtx_up.pressed())
   {
-    Serial.print("LONG");
+    audio_volume += 0.1f;
+    audio_volume_changed = true;
   }
-  Serial.print("; ");
 
-  Serial.println();
+  if (audio_volume_changed)
+  {
+    audio_volume_changed = false;
+    audio_volume = constrain(audio_volume, 0.0f, 1.0f);
+    audio_codec.volume(audio_volume);
+
+    Serial.print("VOL=");
+    Serial.println(audio_volume);
+  }
 
   delay(10);
 }
 
-// int audio_calc_output_hpf_coef()
-// {
-//   int filterCoef;
-//   calcBiquad(FILTER_HIPASS, 400.0f, 0, 0.707f, 524288, 44100, &filterCoef);
-//   return filterCoef;
-// }
+void btn_init()
+{
+  btn_matrix.init();
+  
+  pinMode(PIN_BTN_COM_MIC_STOP, OUTPUT);
+  digitalWrite(PIN_BTN_COM_MIC_STOP, LOW);
+
+  pinMode(PIN_BTN_STOP, INPUT_PULLUP);
+  pinMode(PIN_BTN_MIC, INPUT_PULLUP);
+}
+
+void btn_loop() 
+{
+  btn_deb_stop.loop(!digitalRead(PIN_BTN_STOP), time_ms); // Debounce stop button
+  btn_deb_mic.loop(!digitalRead(PIN_BTN_MIC), time_ms);   // Debounce mic button
+
+  btn_matrix.loop(time_ms); // Handle button matrix (and debounce)
+
+  btn_lp_mtx_up.loop(btn_matrix.rising(BTN_MTX_IDX_UP), btn_matrix.falling(BTN_MTX_IDX_UP), time_ms); // Handle long press UP
+  btn_lp_mtx_down.loop(btn_matrix.rising(BTN_MTX_IDX_DOWN), btn_matrix.falling(BTN_MTX_IDX_DOWN), time_ms); // Handle long press DOWN
+}
+
