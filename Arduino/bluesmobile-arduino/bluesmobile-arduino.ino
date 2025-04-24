@@ -3,7 +3,6 @@
 #include <SPI.h>
 #include <SD.h>
 #include <SerialFlash.h>
-#include <Audio.h>
 
 #include "Debounce.h"
 #include "ButtonMatrix.h"
@@ -27,13 +26,25 @@ LongPress btn_lp_mtx_down;            // Long press handler for DOWN button
 Debounce btn_deb_stop;
 Debounce btn_deb_mic;
 
-uint8_t const audio_mic_gain = 36;
-bool audio_volume_changed;
-float audio_volume = 0.5;
-AudioInputI2S         audio_input; // Microphone or Line
-AudioOutputI2S        audio_output;
-AudioConnection       audio_patch_input_output(audio_input, 0, audio_output, 0);
-AudioControlSGTL5000  audio_codec;
+uint8_t const TRACK_NUM = 6;
+uint8_t const TRACK_NUM_PER_PAGE = 6;
+uint8_t const TRACK_NUM_PAGES = 1;
+static String const TRACK_FILE_NAMES[TRACK_NUM] = {
+  "rodania.wav",  "la_cucaracha.wav",  "general_lee.wav",  "police.wav",  "rainbow.wav",  "vis_in_de_leie.wav", // Page 1
+};
+
+uint64_t time_ms;
+
+bool track_page_changed = false;
+uint8_t track_page_idx = 0;
+int16_t track_preset_requested_idx = TRACK_IDX_NA;
+
+bool audio_volume_changed = false;
+float audio_volume = 0.5f;
+
+bool stop_requested;
+
+BM_Audio audio;
 
 void btn_init();
 void btn_loop();
@@ -53,41 +64,41 @@ void setup()
 
   btn_init();
 
-  AudioMemory(8);
-  audio_codec.enable();
-  
-  audio_codec.inputSelect(AUDIO_INPUT_MIC);
-  audio_codec.muteLineout();
-  audio_codec.micGain(audio_volume);
-  audio_codec.volume(0.5);
-
-  audio_patch_input_output.disconnect();
-
-  // audioPlayer.play("");
+  audio.init();
 }
-
-uint64_t time_ms;
 
 void loop() {
   time_ms = millis();
 
+  stop_requested = false;
+  track_preset_requested_idx = TRACK_IDX_NA;
+  track_page_changed = false;
+  audio_volume_changed = false;
+
   btn_loop();
 
+//region Handle microphone
   if (btn_deb_mic.rising())
   {
-    audio_patch_input_output.connect();
+    audio.microphone(true);
+
+    Serial.println("MIC ON");
   }
   else if (btn_deb_mic.falling())
   {
-    audio_patch_input_output.disconnect();
-  }
+    audio.microphone(false);
 
-  if (btn_lp_mtx_down.pressed())
+    Serial.println("MIC OFF");
+  }
+//endregion
+
+//region Handle volume
+  if (btn_lp_mtx_down.short_pressed())
   {
     audio_volume -= 0.1f;
     audio_volume_changed = true;
   }
-  if (btn_lp_mtx_up.pressed())
+  if (btn_lp_mtx_up.short_pressed())
   {
     audio_volume += 0.1f;
     audio_volume_changed = true;
@@ -95,22 +106,71 @@ void loop() {
 
   if (audio_volume_changed)
   {
-    audio_volume_changed = false;
     audio_volume = constrain(audio_volume, 0.0f, 1.0f);
-    audio_codec.volume(audio_volume);
+    // audio_codec.volume(audio_volume);
 
     Serial.print("VOL=");
     Serial.println(audio_volume);
   }
+//endregion
 
-  for (uint8_t i = 0; i < BTN_MTX_NUM_PRESETS; i++) 
+//region Handle preset pages
+  if (btn_lp_mtx_down.long_pressed())
   {
-    if (btn_matrix.rising(BTN_MTX_IDX_PRESETS[i]))
+    track_page_idx--;
+    track_page_changed = true;
+  }
+  if (btn_lp_mtx_up.long_pressed())
+  {
+    track_page_idx++;
+    track_page_changed = true;
+  }
+  if (track_page_changed) 
+  {
+    track_page_idx = constrain(track_page_idx, 0, TRACK_NUM_PAGES - 1);
+
+    Serial.print("PAGE IDX=");
+    Serial.println(track_page_idx);
+  }
+//endregion
+
+//region Handle player
+  if (btn_deb_stop.rising())
+  {
+    audio.stop();
+
+    Serial.print("PLAYER STOP");
+  }
+  else 
+  {
+    for (uint8_t i = 0; i < BTN_MTX_NUM_PRESETS; i++) 
     {
-      Serial.print("BTN PRESET ");
-      Serial.print(i);
+      if (btn_matrix.rising(BTN_MTX_IDX_PRESETS[i]))
+      {
+        Serial.print("PRESET IDX=");
+        Serial.println(i);
+
+        track_preset_requested_idx = i;
+      }
+    }
+
+    if (track_preset_requested_idx > TRACK_IDX_NA)
+    {
+      uint8_t track_idx = ((TRACK_NUM_PER_PAGE * track_page_idx) + track_preset_requested_idx);
+      if (track_idx < 0 || track_idx >= TRACK_NUM)
+      {
+        Serial.println("PLAYER TRACK INVALID");
+      }
+      else
+      {
+        Serial.print("PLAYER TRACK=");
+        Serial.println(track_idx);
+
+        audio.play(TRACK_FILE_NAMES[track_idx]);
+      }
     }
   }
+//endregion Handle player
 
   delay(10);
 }

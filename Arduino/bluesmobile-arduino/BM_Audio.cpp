@@ -2,21 +2,102 @@
 
 #include "BM_Config.h"
 
-// AudioPlaySdWav        audioPlayer;
-// AudioInputI2S         audioInput; // Microphone or Line
-// AudioOutputI2S        audioOutput;
-// AudioMixer4           audioMixer;
+BM_Audio::BM_Audio() { }
+BM_Audio::~BM_Audio() { }
 
-// AudioConnection       audioPatchPlayerToMixer(audioPlayer, 0, audioMixer, AUDIO_MIX_CH_PLAYER);
-// AudioConnection       audioPatchInputToMixer(audioInput, 0, audioMixer, AUDIO_MIX_CH_INPUT);
-// AudioConnection       audioPatchMixerToOutput(audioMixer, 0, audioOutput, 0);
-// AudioControlSGTL5000  audioCodec;
+void BM_Audio::init()
+{
+  AudioMemory(8);
+  this->codec.enable();
+  
+  this->codec.inputSelect(AUDIO_INPUT_MIC);
+  this->codec.muteLineout();
+  this->codec.micGain(this->mic_gain);
+  this->codec.volume(this->init_volume);
 
-// int audio_calc_output_hpf_coef();
+  this->patch_player_to_mixer.init(player, 0, mixer, AUDIO_MIX_CH_PLAYER);
+  this->patch_player_to_mixer.connect();
 
-// int audio_calc_output_hpf_coef()
-// {
-//   int filterCoef;
-//   calcBiquad(FILTER_HIPASS, 400.0f, 0, 0.707f, 524288, 44100, &filterCoef);
-//   return filterCoef;
-// }
+  this->patch_input_to_mixer.init(input, 0, mixer, AUDIO_MIX_CH_INPUT);
+  this->patch_input_to_mixer.connect();
+
+  this->patch_mixer_to_output.connect(mixer, 0, output, 0);
+
+  this->mixer.gain(AUDIO_MIX_CH_PLAYER, 0.0f);
+  this->mixer.gain(AUDIO_MIX_CH_INPUT, 0.0f);
+}
+
+bool BM_Audio::microphone(bool enable) {
+  if (enable)
+  {
+    this->mixer.gain(AUDIO_MIX_CH_INPUT, 1.0f);
+  }
+  else
+  {
+    this->mixer.gain(AUDIO_MIX_CH_INPUT, 0.0f);
+  }
+  return true;
+}
+
+bool BM_Audio::linein(bool enable) {
+  // ToDo: implement linein
+  return false;
+}
+
+bool BM_Audio::play(String file)
+{
+  bool ret;
+
+  this->mixer.gain(AUDIO_MIX_CH_PLAYER, 1.0f);
+
+  ret = this->player.play(file.c_str());
+  
+  return ret;
+}
+
+bool BM_Audio::stop() 
+{
+  this->mixer.gain(AUDIO_MIX_CH_PLAYER, 0.0f);
+
+  if (this->player.isPlaying())
+  {
+    this->player.stop();
+  }
+  
+  return true;
+}
+
+bool BM_Audio::volume(float vol) {
+  bool ret;
+
+  vol = constrain(vol, 0.0f, 1.0f);
+  
+  ret = this->codec.volume(vol);
+
+  return ret;
+}
+
+//region MyAudioConnection
+int MyAudioConnection::init(AudioStream &source, unsigned char sourceOutput,
+		AudioStream &destination, unsigned char destinationInput)
+{
+  int result = 1;
+
+  if (!this->isConnected)
+  {
+    this->src = &source;
+    this->src_index = sourceOutput;
+    this->dst = &destination;
+    this->dest_index = destinationInput;
+
+    result = 0;
+  }
+
+  return result;
+}
+
+bool MyAudioConnection::connected()
+{
+  return this->isConnected;
+}
+//endregion

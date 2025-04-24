@@ -11,7 +11,7 @@
 void LongPress::loop(bool const rising, bool const falling, uint64_t const time_ms) 
 {
   this->long_pressed_state = false;
-  this->pressed_state = false;
+  this->short_pressed_state = false;
 
   if (rising)
   {
@@ -23,7 +23,7 @@ void LongPress::loop(bool const rising, bool const falling, uint64_t const time_
   {
     if (falling)
     {
-      this->pressed_state = true;
+      this->short_pressed_state = true;
 
       this->pressing = false;
       this->rising_time_ms = 0;
@@ -38,9 +38,9 @@ void LongPress::loop(bool const rising, bool const falling, uint64_t const time_
   }
 }
  
-bool LongPress::pressed()
+bool LongPress::short_pressed()
 {
-  return this->pressed_state;
+  return this->short_pressed_state;
 }
 bool LongPress::long_pressed()
 {

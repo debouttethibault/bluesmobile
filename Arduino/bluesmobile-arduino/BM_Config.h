@@ -23,5 +23,4 @@
 #define BTN_MTX_P_6           7
 #define BTN_MTX_IDX_DOWN      8
 
-#define AUDIO_MIX_CH_PLAYER   0
-#define AUDIO_MIX_CH_INPUT    1
+#define TRACK_IDX_NA          -1
