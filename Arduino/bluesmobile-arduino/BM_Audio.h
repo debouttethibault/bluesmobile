@@ -36,7 +36,7 @@ public:
 
 private:
   float const           init_volume = 0.5f;
-  uint8_t const         mic_gain  = 36;
+  uint8_t const         mic_gain  = 8;
 
   // uint8_t               active_flag;
 

@@ -107,7 +107,8 @@ void loop() {
   if (audio_volume_changed)
   {
     audio_volume = constrain(audio_volume, 0.0f, 1.0f);
-    // audio_codec.volume(audio_volume);
+    
+    audio.volume(audio_volume);
 
     Serial.print("VOL=");
     Serial.println(audio_volume);
@@ -139,7 +140,7 @@ void loop() {
   {
     audio.stop();
 
-    Serial.print("PLAYER STOP");
+    Serial.println("PLAYER STOP");
   }
   else 
   {
