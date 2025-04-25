@@ -68,8 +68,10 @@ void setup()
 }
 
 void loop() {
-  time_ms = millis();
+  bool ret;
 
+  time_ms = millis();
+  
   stop_requested = false;
   track_preset_requested_idx = TRACK_IDX_NA;
   track_page_changed = false;
@@ -107,10 +109,11 @@ void loop() {
   if (audio_volume_changed)
   {
     audio_volume = constrain(audio_volume, 0.0f, 1.0f);
-    // audio_codec.volume(audio_volume);
+
+    ret = audio.volume(audio_volume);
 
     Serial.print("VOL=");
-    Serial.println(audio_volume);
+    Serial.println(ret ? String(audio_volume) : "ERR");
   }
 //endregion
 
@@ -139,7 +142,7 @@ void loop() {
   {
     audio.stop();
 
-    Serial.print("PLAYER STOP");
+    Serial.println("PLAYER STOP");
   }
   else 
   {
@@ -163,10 +166,10 @@ void loop() {
       }
       else
       {
-        Serial.print("PLAYER TRACK=");
-        Serial.println(track_idx);
+        ret = audio.play(TRACK_FILE_NAMES[track_idx]);
 
-        audio.play(TRACK_FILE_NAMES[track_idx]);
+        Serial.print("PLAYER TRACK=");
+        Serial.println(ret ? String(track_idx) : "ERR");
       }
     }
   }

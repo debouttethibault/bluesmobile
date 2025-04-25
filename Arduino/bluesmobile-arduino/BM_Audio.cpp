@@ -15,26 +15,33 @@ void BM_Audio::init()
   this->codec.micGain(this->mic_gain);
   this->codec.volume(this->init_volume);
 
-  this->patch_player_to_mixer.init(player, 0, mixer, AUDIO_MIX_CH_PLAYER);
-  this->patch_player_to_mixer.connect();
+  this->patch_input_to_output.init(input, 0, output, 0);
 
-  this->patch_input_to_mixer.init(input, 0, mixer, AUDIO_MIX_CH_INPUT);
-  this->patch_input_to_mixer.connect();
+  this->patch_player_to_output.init(player, 0, output, 0);
+}
 
-  this->patch_mixer_to_output.connect(mixer, 0, output, 0);
+static inline bool mic_enabled_cond(uint8_t active_flag, bool enable)
+{
+  return (0 == (active_flag & AUDIO_FLAG_MICROPHONE) && true == enable);
+}
 
-  this->mixer.gain(AUDIO_MIX_CH_PLAYER, 0.0f);
-  this->mixer.gain(AUDIO_MIX_CH_INPUT, 0.0f);
+static inline bool mic_disabled_cond(uint8_t active_flag, bool enable)
+{
+  return (AUDIO_FLAG_MICROPHONE == (active_flag & AUDIO_FLAG_MICROPHONE) && false == enable);
 }
 
 bool BM_Audio::microphone(bool enable) {
-  if (enable)
+  if (mic_enabled_cond(this->active_flag, enable))
   {
-    this->mixer.gain(AUDIO_MIX_CH_INPUT, 1.0f);
+    this->patch_input_to_output.connect();
+
+    this->active_flag |= AUDIO_FLAG_MICROPHONE;
   }
-  else
+  else if (mic_disabled_cond(this->active_flag, enable))
   {
-    this->mixer.gain(AUDIO_MIX_CH_INPUT, 0.0f);
+    this->patch_input_to_output.disconnect();
+
+    this->active_flag &= ~AUDIO_FLAG_MICROPHONE;
   }
   return true;
 }
@@ -46,25 +53,13 @@ bool BM_Audio::linein(bool enable) {
 
 bool BM_Audio::play(String file)
 {
-  bool ret;
-
-  this->mixer.gain(AUDIO_MIX_CH_PLAYER, 1.0f);
-
-  ret = this->player.play(file.c_str());
-  
-  return ret;
+  // ToDo: implement player
+  return false;
 }
 
 bool BM_Audio::stop() 
 {
-  this->mixer.gain(AUDIO_MIX_CH_PLAYER, 0.0f);
-
-  if (this->player.isPlaying())
-  {
-    this->player.stop();
-  }
-  
-  return true;
+  return false;
 }
 
 bool BM_Audio::volume(float vol) {

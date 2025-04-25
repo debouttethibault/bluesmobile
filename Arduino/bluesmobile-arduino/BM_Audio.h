@@ -36,17 +36,16 @@ public:
 
 private:
   float const           init_volume = 0.5f;
-  uint8_t const         mic_gain  = 36;
+  uint8_t const         mic_gain  = 8;
 
-  // uint8_t               active_flag;
+  uint8_t               prev_active_flag;
+  uint8_t               active_flag;
 
   AudioOutputI2S        output;
-  AudioMixer4           mixer;
   AudioPlaySdWav        player;
   AudioInputI2S         input;
 
-  MyAudioConnection     patch_player_to_mixer;
-  MyAudioConnection     patch_input_to_mixer;
-  MyAudioConnection     patch_mixer_to_output;
+  MyAudioConnection     patch_player_to_output;
+  MyAudioConnection     patch_input_to_output;
   AudioControlSGTL5000  codec;
 };
